@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title></title>
+		<style>
+			.mycanvas{
+				background-color: aquamarine;
+				text-align: center;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas" class="mycanvas" width="600" height="600" >抱歉，您的浏览器不支持canvas元素</canvas>
+		
+	</body>
+	<script type="text/javascript">
+		function init_array () {
+			for(var i =0 ; i<Config.row; i++)
+			{
+				Config.arr[i] = new Array(Config.column);
+			}
+			for(var i = 0; i<Config.row;i++)
+			{
+				for(var j = 0; j<Config.column;j++)
+				{
+					Config.arr[i][j] = Config.empty_flag;
+				}
+			}
+			var index_x = Config.row/2-1;
+			var index_y = Config.column/2-1;
+			Config.arr[index_x][index_y] = Config.role1_flag;
+			Config.arr[index_x+1][index_y+1] = Config.role1_flag;
+			Config.arr[index_x+1][index_y] = Config.role2_flag;
+			Config.arr[index_x][index_y+1] = Config.role2_flag;
+		}
+		function getGamePos ( x,  y) {
+			var GamePos = {};
+			GamePos.x = 0;
+			GamePos.y = 0;
+			var per_x = Config.height/Config.row;
+			var per_y = Config.width/Config.column;
+			for(;GamePos.x<Config.row;GamePos.x++)
+			{
+				if(y<(GamePos.x+1)*per_y)
+				{
+					break;
+				}
+			}
+			for(;GamePos.y<Config.column;GamePos.y++)
+			{
+				if(x<(GamePos.y+1)*per_x)
+				{
+					break;
+				}
+			}
+			return GamePos;
+		}
+		function draw_grid (canvas,context) {
+			var per_x = Config.width/Config.row;
+			var per_y = Config.height/Config.column;
+			context.strokeWidth = Config.grid_line_width;
+			context.strokeStyle = Config.grid_line_color;
+			for(var i = 0; i<=Config.row;i++)
+			{
+				
+				var s_x = i*per_x;
+				var s_y = 0;
+				var e_x = s_x;
+				var e_y = Config.height;
+				context.moveTo(s_x,s_y);
+				context.lineTo(e_x,e_y);
+				context.stroke();	
+			}
+			for(var i = 0; i<=Config.column;i++)
+			{
+				
+				var s_x = 0;
+				var s_y = i*per_y;
+				var e_x = Config.width;
+				var e_y = s_y;
+				context.moveTo(s_x,s_y);
+				context.lineTo(e_x,e_y);
+				context.stroke();
+			}
+		}
+		function update () {
+			Config.context.clearRect(0,0,Config.width,Config.height);
+			draw_grid(Config.canvas,Config.context);
+			var per_x = Config.height/Config.row;
+			var per_y = Config.width/Config.column;
+			var arr = Config.arr;
+			for(var i = 0; i<Config.row;i++)
+			{
+				for(var j = 0; j<Config.column;j++)
+				{
+					if(arr[i][j] == Config.role1_flag)
+					{
+						draw_rect(j*per_x,i*per_y,Config.playrole1);
+					}else if(arr[i][j] == Config.role2_flag)
+					{
+						draw_rect(j*per_x,i*per_y,Config.playrole2);
+					}
+				}
+			}
+			var next_game_pts = get_next_game_pos();
+			for(var i = 0; i<next_game_pts.length;i++)
+			{
+				var GamePos = next_game_pts[i];
+				drawPos(GamePos.x,GamePos.y);
+			}
+		}
+		
+		function drawPos (x,y) {
+			var per_x = Config.width/Config.row;
+			var per_y = Config.height/Config.column;
+			Config.context.fillStyle = Config.point_color;
+			var center_x = per_y*y+per_y/2;
+			var center_y = per_x*x+per_x/2;
+			var context = Config.context;
+			context.beginPath();
+			context.arc(center_x,center_y,per_x/5,0,2*Math.PI,false);
+			context.closePath();
+			context.fill();
+			
+		}
+		function draw_rect (x,y,color) {
+			var per_x = Config.height/Config.row;
+			var per_y = Config.width/Config.column;
+			Config.context.fillStyle = color;
+			Config.context.fillRect(x,y,per_x,per_y);
+		}
+		
+		function get_next_game_pos () {
+			var result = new Array();
+			var arr = Config.arr;
+			for(var i = 0; i<Config.row; i++)
+			{
+				for(var j = 0; j<Config.column;j++)
+				{
+					if(is_ready(i,j)==true)
+					{
+						var GamePos = {};
+						GamePos.x = i; GamePos.y = j;
+						result.push(GamePos);
+					}
+				}
+			}
+			return result;
+		}
+		// 判断是否能落子
+		function is_ready (x,y) {
+			var arr = Config.arr;
+			if(arr[x][y]!=Config.empty_flag)
+				return false;
+				
+			// up_left 
+			var up_left = core(-1,-1,x,y);
+			// up 
+			var up = core(-1,0,x,y);
+			// up_right
+			var up_right =core(1,1,x,y);
+			//  right
+			var right = core(0,1,x,y);
+			// bottom_right
+			var bottom_right= core(1,1,x,y);
+			// bottom
+			var bottom = core(1,0,x,y);
+			// bottom_left
+			var bottom_left = core(-1,-1,x,y);
+			// left
+			var left = core(0,-1,x,y);
+			return up_left|| up || up_right || right || bottom_right || bottom || bottom_left|| left; 
+		}
+		
+		// 判断是否能落子的核心方法
+		function core (offset_x,offset_y,x,y) {
+			var arr = Config.arr;
+			var result = true;
+			temp_x = x; temp_y = y;
+			role_1 = false; role_2 = false;
+			index = 0;
+			temp_x+=offset_x; temp_y+=offset_y;
+			while(judge_edge(temp_x)&&judge_edge(temp_y)&&arr[temp_x][temp_y]!=Config.empty_flag)
+			{
+				if(index ==0)
+				{
+					if(arr[temp_x][temp_y]== Config.current_role)
+						break;
+				}
+				if(arr[temp_x][temp_y] == Config.role1_flag)
+					role_1 = true;
+				else if(arr[temp_x][temp_y] == Config.role2_flag)
+					role_2 = true;
+				index++;
+				temp_x+=offset_x; temp_y+=offset_y;
+			}
+			result = role_1&& role_2;
+			return result;
+		}
+		
+		
+		// 判断数组是否越界
+		function judge_edge (x,y) {
+			if(x<0||y<0||x>=Config.row||y>=Config.column)
+				return false;
+			return true;
+		}
+		function contains(point,points){
+			for(var i =0 ;i<points.length; i++)
+			{
+				var temp = points[i];
+				if(temp.x == point.x && point.y == temp.y)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+		// 落子后，翻转棋子
+		function update_array (x,y) {
+			var change_points = new Array();
+			// up_left 
+			update_array_core(-1,-1,x,y,change_points);
+			// up 
+			update_array_core(-1,0,x,y,change_points);
+			// up_right
+			update_array_core(1,1,x,y,change_points);
+			//  right
+			update_array_core(0,1,x,y,change_points);
+			// bottom_right
+			update_array_core(1,1,x,y,change_points);
+			// bottom
+			update_array_core(1,0,x,y,change_points);
+			// bottom_left
+			update_array_core(-1,-1,x,y,change_points);
+			// left
+			update_array_core(0,-1,x,y,change_points);
+			// change
+			for(var i = 0; i<change_points.length;i++)
+			{
+				var x = change_points[i].x;
+				var y = change_points[i].y;
+				Config.arr[x][y] = Config.current_role;
+			}
+		}
+		
+		//翻转棋子核心方法
+		function update_array_core (offset_x,offset_y,x,y,change_points) {
+			var result = core(offset_x,offset_y,x,y);
+			var arr = Config.arr;
+			x+=offset_x;y+=offset_y;
+			if(result == true)
+			{
+				while(judge_edge(x,y)&&arr[x][y]!=Config.current_role)
+				{
+					var GamePos = {};
+					GamePos.x = x;
+					GamePos.y = y;
+					change_points.push(GamePos);
+					x+=offset_x;y+=offset_y;
+				}
+			}
+		}
+		function isWin () {
+			var arr = Config.arr;
+			var result_1 = 0; var result_2 = 0;
+			for(var i = 0; i<Config.row;i++)
+			{
+				for(var j = 0; j<Config.column;j++)
+				{
+					if(arr[i][j] == Config.role1_flag)
+						result_1++;
+					if(arr[i][j] == Config.role2_flag)
+						result_2++;
+				}
+			}
+			return result_1>result_2?"role1---WIN":"role2---WIN";
+			
+		}
+		
+	</script>
+	
+	<script type="text/javascript">
+		// 基本配置
+		var Config = {};
+		Config.current_role = 1;
+		Config.point_color = "#F4D86D";
+		Config.grid_line_color = "gray";
+		Config.grid_line_width = 10;
+		Config.playrole1 = "black";
+		Config.playrole2 = "white";
+		Config.row = 8;
+		Config.column = 8;
+		Config.canvas = document.getElementById("canvas");
+		
+		Config.role1_flag = 1;
+		Config.role2_flag = -1;
+		Config.empty_flag = 0;
+		Config.arr = new Array(Config.row);
+		Config.context = {};
+		if(Config.canvas.getContext)
+		{
+			Config.context = canvas.getContext("2d");
+		}
+		Config.width = Config.canvas.width;
+		Config.height = Config.canvas.height;
+		init_array();
+		
+		Config.canvas.addEventListener("click",function(event){
+			
+			var x = event.pageX - Config.canvas.getBoundingClientRect().left;
+            var y = event.pageY - Config.canvas.getBoundingClientRect().top;
+            var GamePos = getGamePos(x,y);
+			console.log(GamePos.x);
+			console.log(GamePos.y);
+			var points = get_next_game_pos();
+			if(points.length!=0){
+				if(contains(GamePos,points))
+				{
+					update_array(GamePos.x,GamePos.y);
+					Config.arr[GamePos.x][GamePos.y] = Config.current_role;
+					if(Config.current_role == Config.role1_flag)
+					{
+						Config.current_role = Config.role2_flag;
+					}else{
+						Config.current_role = Config.role1_flag;
+					}
+					
+					// 重新绘制
+					update();
+				}
+			}
+			// 检测游戏是否结束
+			points = get_next_game_pos();
+			if(points.length == 0)
+			{
+				var result = isWin();
+				alert(result);
+			}
+			
+		})
+		
+		draw_grid(Config.canvas,Config.context);
+		update();
+	</script>
+</html>
